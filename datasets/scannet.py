@@ -4,16 +4,46 @@ import pickle
 import cv2
 from PIL import Image
 from torch.utils.data import Dataset
+from loguru import logger as logging
+import json
+
+
+def readlines(filepath):
+    with open(filepath, 'r') as f:
+        lines = f.read().splitlines()
+    return lines
+
+
+def load_intrinsics(intrinsics_path):
+
+    lines = readlines(intrinsics_path)
+    lines = [line.split(' = ') for line in lines]
+    data = {key: val for key, val in lines}
+
+    K = np.eye(3)
+    K[0, 0] = data['fx_color']
+    K[1, 1] = data['fy_color']
+    K[0, 2] = data['mx_color']
+    K[1, 2] = data['my_color']
+
+    # # scale intrinsics
+    K[0] *= 512 / float(data['colorWidth'])
+    K[1] *= 384 / float(data['colorHeight'])
+
+    # invK = np.linalg.inv(K)
+
+    return K
 
 
 class ScanNetDataset(Dataset):
-    def __init__(self, datapath, mode, transforms, nviews, n_scales):
+    def __init__(self, datapath, mode, transforms, nviews, n_scales, every_nth_view=1):
         super(ScanNetDataset, self).__init__()
         self.datapath = datapath
         self.mode = mode
         self.n_views = nviews
         self.transforms = transforms
         self.tsdf_file = 'all_tsdf_{}'.format(self.n_views)
+        self.every_nth_view = every_nth_view
 
         assert self.mode in ["train", "val", "test"]
         self.metas = self.build_list()
@@ -35,10 +65,13 @@ class ScanNetDataset(Dataset):
     def __len__(self):
         return len(self.metas)
 
-    def read_cam_file(self, filepath, vid):
-        intrinsics = np.loadtxt(os.path.join(filepath, 'intrinsic', 'intrinsic_color.txt'), delimiter=' ')[:3, :3]
+    def read_cam_file(self, filepath, vid, scene_id):
+        # intrinsics = np.loadtxt(os.path.join(filepath, scene_id, f'{scene_id}.txt'), delimiter=' ')[:3, :3]
+
+        intrinsics = load_intrinsics(os.path.join(filepath, f'{scene_id}.txt'))
+
         intrinsics = intrinsics.astype(np.float32)
-        extrinsics = np.loadtxt(os.path.join(filepath, 'pose', '{}.txt'.format(str(vid))))
+        extrinsics = np.loadtxt(os.path.join(filepath, 'sensor_data', f'frame-{vid:06d}.pose.txt'))
         return intrinsics, extrinsics
 
     def read_img(self, filepath):
@@ -68,6 +101,7 @@ class ScanNetDataset(Dataset):
 
     def __getitem__(self, idx):
         meta = self.metas[idx]
+        logging.debug(f'Fragment {idx} metadata: {json.dumps(meta, indent=2, default=str)}')
 
         imgs = []
         depth = []
@@ -80,19 +114,22 @@ class ScanNetDataset(Dataset):
             # load images
             imgs.append(
                 self.read_img(
-                    os.path.join(self.datapath, self.source_path, meta['scene'], 'color', '{}.jpg'.format(vid))))
+                    os.path.join(self.datapath, self.source_path, meta['scene'], 'sensor_data', f'frame-{vid:06d}.color.small.jpg')))
 
             depth.append(
                 self.read_depth(
-                    os.path.join(self.datapath, self.source_path, meta['scene'], 'depth', '{}.png'.format(vid)))
+                    os.path.join(self.datapath, self.source_path, meta['scene'], 'sensor_data', f'frame-{vid:06d}.depth.pgm'))
             )
 
             # load intrinsics and extrinsics
             intrinsics, extrinsics = self.read_cam_file(os.path.join(self.datapath, self.source_path, meta['scene']),
-                                                        vid)
+                                                        vid,
+                                                        meta['scene'])
 
             intrinsics_list.append(intrinsics)
             extrinsics_list.append(extrinsics)
+
+        logging.debug(f"Read {len(imgs)} items from scene.")
 
         intrinsics = np.stack(intrinsics_list)
         extrinsics = np.stack(extrinsics_list)

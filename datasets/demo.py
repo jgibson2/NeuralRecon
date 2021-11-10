@@ -7,12 +7,13 @@ from torch.utils.data import Dataset
 
 
 class DemoDataset(Dataset):
-    def __init__(self, datapath, mode, transforms, nviews, n_scales):
+    def __init__(self, datapath, mode, transforms, nviews, n_scales, every_nth_view=1):
         super(DemoDataset, self).__init__()
         self.datapath = datapath
         self.mode = mode
         self.n_views = nviews
         self.transforms = transforms
+        self.every_nth_view = every_nth_view
 
         assert self.mode in ["train", "val", "test"]
         self.metas = self.build_list()
@@ -45,6 +46,8 @@ class DemoDataset(Dataset):
         extrinsics = np.stack(extrinsics_list)
 
         for i, vid in enumerate(meta['image_ids']):
+            if not i % self.every_nth_view == 0:
+                continue
             # load images
             imgs.append(
                 self.read_img(

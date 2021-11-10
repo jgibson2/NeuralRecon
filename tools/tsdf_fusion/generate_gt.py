@@ -7,6 +7,7 @@ import pickle
 import argparse
 from tqdm import tqdm
 import ray
+import glob
 import torch.multiprocessing
 from tools.simple_loader import *
 
@@ -193,6 +194,33 @@ def save_fragment_pkl(args, scene, cam_intr, depth_list, cam_pose_list):
         pickle.dump(fragments, f)
 
 
+def readlines(filepath):
+    with open(filepath, 'r') as f:
+        lines = f.read().splitlines()
+    return lines
+
+
+def load_intrinsics(intrinsics_path):
+
+    lines = readlines(intrinsics_path)
+    lines = [line.split(' = ') for line in lines]
+    data = {key: val for key, val in lines}
+
+    K = np.eye(3)
+    K[0, 0] = data['fx_depth']
+    K[1, 1] = data['fy_depth']
+    K[0, 2] = data['mx_depth']
+    K[1, 2] = data['my_depth']
+
+    # # scale intrinsics
+    # K[0] *= self.feature_width / float(data['colorWidth'])
+    # K[1] *= self.feature_height / float(data['colorHeight'])
+
+    # invK = np.linalg.inv(K)
+
+    return K
+
+
 @ray.remote(num_cpus=args.num_workers + 1, num_gpus=(1 / args.n_proc))
 def process_with_single_worker(args, scannet_files):
     for scene in tqdm(scannet_files):
@@ -205,9 +233,13 @@ def process_with_single_worker(args, scannet_files):
         color_all = {}
 
         if args.dataset == 'scannet':
-            n_imgs = len(os.listdir(os.path.join(args.data_path, scene, 'color')))
-            intrinsic_dir = os.path.join(args.data_path, scene, 'intrinsic', 'intrinsic_depth.txt')
-            cam_intr = np.loadtxt(intrinsic_dir, delimiter=' ')[:3, :3]
+            img_files = glob.glob(os.path.join(args.data_path, scene, 'sensor_data', "*.color.small.jpg"))
+            n_imgs = len(img_files)
+            intrinsic_dir = os.path.join(args.data_path, scene, f"{scene}.txt")
+            # cam_intr = np.loadtxt(intrinsic_dir, delimiter=' ')[:3, :3]
+
+            cam_intr = load_intrinsics(intrinsic_dir)
+
             dataset = ScanNetDataset(n_imgs, scene, args.data_path, args.max_depth)
 
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=None, collate_fn=collate_fn,
