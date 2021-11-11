@@ -36,14 +36,13 @@ def load_intrinsics(intrinsics_path):
 
 
 class ScanNetDataset(Dataset):
-    def __init__(self, datapath, mode, transforms, nviews, n_scales, every_nth_view=1):
+    def __init__(self, datapath, mode, transforms, nviews, n_scales):
         super(ScanNetDataset, self).__init__()
         self.datapath = datapath
         self.mode = mode
         self.n_views = nviews
         self.transforms = transforms
         self.tsdf_file = 'all_tsdf_{}'.format(self.n_views)
-        self.every_nth_view = every_nth_view
 
         assert self.mode in ["train", "val", "test"]
         self.metas = self.build_list()

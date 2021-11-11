@@ -2,6 +2,7 @@ import sys
 sys.path.append('.')
 
 import time
+import os
 from tools.tsdf_fusion.fusion import *
 import pickle
 import argparse
@@ -12,7 +13,7 @@ import glob
 def parse_args():
     parser = argparse.ArgumentParser(description='Fuse ground truth tsdf')
     parser.add_argument("--dataset", default='scannet')
-    parse.add_argument("--tsdf_folder_path", help="path to TSDF files")
+    parser.add_argument("--tsdf_folder_path", help="path to TSDF files")
     parser.add_argument("--frames_file_path", help="Path to file with frames to use")
     parser.add_argument('--test', action='store_true',
                         help='prepare the test set')
@@ -49,12 +50,12 @@ def readlines(filepath):
     return lines
 
 
-def process(args, scannet_files):
+def process(args):
     frames = {}
     for line in readlines(args.frames_file_path):
         data = line.strip().split()
         frames[data[0]] = [int(i) for i in data[1:]]
-    for scene in tqdm(scannet_files):
+    for scene in tqdm(list(frames.keys())):
         print('read from disk')
         save_fragment_pkl(args, scene, frames[scene])
 
@@ -82,7 +83,7 @@ def generate_pkl(args):
 
 
 if __name__ == "__main__":
-    process(args, files)
+    process(args)
 
     if args.dataset == 'scannet':
         generate_pkl(args)
