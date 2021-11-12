@@ -38,7 +38,6 @@ _C.TEST = CN()
 _C.TEST.PATH = ''
 _C.TEST.N_VIEWS = 5
 _C.TEST.N_WORKERS = 4
-_C.TEST.EVERY_NTH_VIEW = 1
 
 # model
 _C.MODEL = CN()
