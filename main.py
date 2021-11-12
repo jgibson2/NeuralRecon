@@ -114,8 +114,8 @@ transforms = transforms.Compose(transform)
 
 # dataset, dataloader
 MVSDataset = find_dataset_def(cfg.DATASET)
-train_dataset = MVSDataset(cfg.TRAIN.PATH, "train", transforms, cfg.TRAIN.N_VIEWS, len(cfg.MODEL.THRESHOLDS) - 1, every_nth_view=cfg.TRAIN.EVERY_NTH_VIEW)
-test_dataset = MVSDataset(cfg.TEST.PATH, "test", transforms, cfg.TEST.N_VIEWS, len(cfg.MODEL.THRESHOLDS) - 1, every_nth_view=cfg.TEST.EVERY_NTH_VIEW)
+train_dataset = MVSDataset(cfg.TRAIN.PATH, "train", transforms, cfg.TRAIN.N_VIEWS, len(cfg.MODEL.THRESHOLDS) - 1)
+test_dataset = MVSDataset(cfg.TEST.PATH, "test", transforms, cfg.TEST.N_VIEWS, len(cfg.MODEL.THRESHOLDS) - 1)
 
 if cfg.DISTRIBUTED:
     train_sampler = DistributedSampler(train_dataset, shuffle=False)
